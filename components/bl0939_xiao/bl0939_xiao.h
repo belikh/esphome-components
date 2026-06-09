@@ -135,6 +135,16 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   void set_apparent_current_sensor_1(sensor::Sensor *s) { apparent_current_sensor_1_ = s; }
   void set_apparent_current_sensor_2(sensor::Sensor *s) { apparent_current_sensor_2_ = s; }
 
+  // Additional native BL0939 registers included in the 35-byte packet but
+  // not used by any other sensor above.
+  // Fast RMS current (IA/IB_FAST_RMS): same units/reference as current_1/2,
+  // but refreshed every half/full AC cycle (~10-40 ms) instead of 400 ms,
+  // intended for leakage/overcurrent monitoring.
+  void set_fast_current_sensor_1(sensor::Sensor *s) { fast_current_sensor_1_ = s; }
+  void set_fast_current_sensor_2(sensor::Sensor *s) { fast_current_sensor_2_ = s; }
+  // Internal chip temperature (TPS1), converted to °C.
+  void set_chip_temperature_sensor(sensor::Sensor *s) { chip_temperature_sensor_ = s; }
+
   // Optional SCLK pin (XIAO D1 / GPIO3).
   // The PCB has a 1 kΩ pull-up to 3V3 keeping SCLK HIGH so BL0939 uses the
   // default address (5). Providing this pin locks the state explicitly.
@@ -174,6 +184,10 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *apparent_current_sensor_1_ {nullptr};
   sensor::Sensor *apparent_current_sensor_2_ {nullptr};
 
+  sensor::Sensor *fast_current_sensor_1_  {nullptr};
+  sensor::Sensor *fast_current_sensor_2_  {nullptr};
+  sensor::Sensor *chip_temperature_sensor_ {nullptr};
+
   GPIOPin *sclk_pin_ {nullptr};
 
   float current_reference_ {BL0939_XIAO_IREF};
@@ -183,6 +197,7 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
 
   static uint32_t to_uint32_t(ube24_t input);
   static int32_t  to_int32_t(sbe24_t input);
+  static uint16_t to_uint16_t(ube16_t input);
   static bool     validate_checksum(const DataPacket *data);
   void            received_package_(const DataPacket *data) const;
 };

@@ -99,6 +99,15 @@ void BL0939Xiao::received_package_(const DataPacket *data) const {
   const float a_energy  = static_cast<float>(cfa_cnt) / energy_reference_;
   const float b_energy  = static_cast<float>(cfb_cnt) / energy_reference_;
 
+  // Fast RMS current (half/full AC cycle response, ~10-40 ms) - same
+  // conversion factor as the regular (400 ms averaged) RMS current.
+  const float fast_ia = static_cast<float>(to_uint32_t(data->ia_fast_rms)) / current_reference_;
+  const float fast_ib = static_cast<float>(to_uint32_t(data->ib_fast_rms)) / current_reference_;
+
+  // Internal chip temperature (TPS1), per datasheet section 2.11:
+  //   Tx = (170/448) * (TPS1/2 - 32) - 45
+  const float chip_temp = (170.0f / 448.0f) * (static_cast<float>(to_uint16_t(data->tps1)) / 2.0f - 32.0f) - 45.0f;
+
   // --- Derived quantities ---
   // The BL0939 only directly measures effective (RMS) voltage, effective
   // (RMS) current per channel, and active power per channel. Everything
@@ -152,6 +161,10 @@ void BL0939Xiao::received_package_(const DataPacket *data) const {
   if (reactive_current_sensor_2_) reactive_current_sensor_2_->publish_state(reactive_i2);
   if (apparent_current_sensor_1_) apparent_current_sensor_1_->publish_state(ia_rms);
   if (apparent_current_sensor_2_) apparent_current_sensor_2_->publish_state(ib_rms);
+
+  if (fast_current_sensor_1_)  fast_current_sensor_1_->publish_state(fast_ia);
+  if (fast_current_sensor_2_)  fast_current_sensor_2_->publish_state(fast_ib);
+  if (chip_temperature_sensor_) chip_temperature_sensor_->publish_state(chip_temp);
 }
 
 void BL0939Xiao::dump_config() {
@@ -182,6 +195,9 @@ void BL0939Xiao::dump_config() {
   LOG_SENSOR("  ", "Reactive current 2", reactive_current_sensor_2_);
   LOG_SENSOR("  ", "Apparent current 1", apparent_current_sensor_1_);
   LOG_SENSOR("  ", "Apparent current 2", apparent_current_sensor_2_);
+  LOG_SENSOR("  ", "Fast current 1",     fast_current_sensor_1_);
+  LOG_SENSOR("  ", "Fast current 2",     fast_current_sensor_2_);
+  LOG_SENSOR("  ", "Chip temperature",   chip_temperature_sensor_);
 }
 
 uint32_t BL0939Xiao::to_uint32_t(ube24_t input) {
@@ -194,6 +210,10 @@ int32_t BL0939Xiao::to_int32_t(sbe24_t input) {
   return static_cast<int32_t>(input.h) << 16 |
          static_cast<int32_t>(input.m) << 8  |
          static_cast<int32_t>(input.l);
+}
+
+uint16_t BL0939Xiao::to_uint16_t(ube16_t input) {
+  return static_cast<uint16_t>(input.h) << 8 | static_cast<uint16_t>(input.l);
 }
 
 }  // namespace bl0939_xiao
