@@ -1,6 +1,8 @@
 #include "bl0939_xiao.h"
 #include "esphome/core/log.h"
+#include <algorithm>
 #include <cinttypes>
+#include <cmath>
 
 namespace esphome {
 namespace bl0939_xiao {
@@ -97,10 +99,36 @@ void BL0939Xiao::received_package_(const DataPacket *data) const {
   const float a_energy  = static_cast<float>(cfa_cnt) / energy_reference_;
   const float b_energy  = static_cast<float>(cfb_cnt) / energy_reference_;
 
+  // --- Derived quantities ---
+  // The BL0939 only directly measures effective (RMS) voltage, effective
+  // (RMS) current per channel, and active power per channel. Everything
+  // below follows from the power triangle S^2 = P^2 + Q^2:
+  //   apparent power   S = V_rms * I_rms
+  //   reactive power   Q = sqrt(S^2 - P^2)   (magnitude only - the BL0939
+  //                                            gives no phase/quadrant info,
+  //                                            so inductive vs. capacitive
+  //                                            loads cannot be distinguished)
+  //   power factor    PF = |P| / S
+  //   active current  Ia = P / V_rms
+  //   reactive current Ir = Q / V_rms
+  //   apparent current   = I_rms (same value as the "effective current"
+  //                                 sensors current_1 / current_2)
+  const float s1 = v_rms * ia_rms;
+  const float s2 = v_rms * ib_rms;
+  const float q1 = std::sqrt(std::max(s1 * s1 - a_watt * a_watt, 0.0f));
+  const float q2 = std::sqrt(std::max(s2 * s2 - b_watt * b_watt, 0.0f));
+  const float pf1 = (s1 > 0.0f) ? std::min(std::fabs(a_watt) / s1, 1.0f) : 0.0f;
+  const float pf2 = (s2 > 0.0f) ? std::min(std::fabs(b_watt) / s2, 1.0f) : 0.0f;
+  const float active_i1   = (v_rms > 0.0f) ? a_watt / v_rms : 0.0f;
+  const float active_i2   = (v_rms > 0.0f) ? b_watt / v_rms : 0.0f;
+  const float reactive_i1 = (v_rms > 0.0f) ? q1 / v_rms : 0.0f;
+  const float reactive_i2 = (v_rms > 0.0f) ? q2 / v_rms : 0.0f;
+
   ESP_LOGV(TAG,
            "U %.1f V  I1 %.2f A  I2 %.2f A  P1 %.0f W  P2 %.0f W"
+           "  S1 %.0f VA  S2 %.0f VA  Q1 %.0f var  Q2 %.0f var"
            "  CntA %" PRId32 "  CntB %" PRId32 "  E1 %.3f kWh  E2 %.3f kWh",
-           v_rms, ia_rms, ib_rms, a_watt, b_watt,
+           v_rms, ia_rms, ib_rms, a_watt, b_watt, s1, s2, q1, q2,
            cfa_cnt, cfb_cnt, a_energy, b_energy);
 
   if (voltage_sensor_)    voltage_sensor_->publish_state(v_rms);
@@ -111,6 +139,19 @@ void BL0939Xiao::received_package_(const DataPacket *data) const {
   if (energy_sensor_1_)   energy_sensor_1_->publish_state(a_energy);
   if (energy_sensor_2_)   energy_sensor_2_->publish_state(b_energy);
   if (energy_sensor_sum_) energy_sensor_sum_->publish_state(a_energy + b_energy);
+
+  if (apparent_power_sensor_1_)   apparent_power_sensor_1_->publish_state(s1);
+  if (apparent_power_sensor_2_)   apparent_power_sensor_2_->publish_state(s2);
+  if (reactive_power_sensor_1_)   reactive_power_sensor_1_->publish_state(q1);
+  if (reactive_power_sensor_2_)   reactive_power_sensor_2_->publish_state(q2);
+  if (power_factor_sensor_1_)     power_factor_sensor_1_->publish_state(pf1 * 100.0f);
+  if (power_factor_sensor_2_)     power_factor_sensor_2_->publish_state(pf2 * 100.0f);
+  if (active_current_sensor_1_)   active_current_sensor_1_->publish_state(active_i1);
+  if (active_current_sensor_2_)   active_current_sensor_2_->publish_state(active_i2);
+  if (reactive_current_sensor_1_) reactive_current_sensor_1_->publish_state(reactive_i1);
+  if (reactive_current_sensor_2_) reactive_current_sensor_2_->publish_state(reactive_i2);
+  if (apparent_current_sensor_1_) apparent_current_sensor_1_->publish_state(ia_rms);
+  if (apparent_current_sensor_2_) apparent_current_sensor_2_->publish_state(ib_rms);
 }
 
 void BL0939Xiao::dump_config() {
@@ -121,14 +162,26 @@ void BL0939Xiao::dump_config() {
   if (sclk_pin_) {
     LOG_PIN("  SCLK pin: ", sclk_pin_);
   }
-  LOG_SENSOR("  ", "Voltage",    voltage_sensor_);
-  LOG_SENSOR("  ", "Current 1",  current_sensor_1_);
-  LOG_SENSOR("  ", "Current 2",  current_sensor_2_);
-  LOG_SENSOR("  ", "Power 1",    power_sensor_1_);
-  LOG_SENSOR("  ", "Power 2",    power_sensor_2_);
-  LOG_SENSOR("  ", "Energy 1",   energy_sensor_1_);
-  LOG_SENSOR("  ", "Energy 2",   energy_sensor_2_);
-  LOG_SENSOR("  ", "Energy sum", energy_sensor_sum_);
+  LOG_SENSOR("  ", "Voltage",            voltage_sensor_);
+  LOG_SENSOR("  ", "Current 1",          current_sensor_1_);
+  LOG_SENSOR("  ", "Current 2",          current_sensor_2_);
+  LOG_SENSOR("  ", "Power 1",            power_sensor_1_);
+  LOG_SENSOR("  ", "Power 2",            power_sensor_2_);
+  LOG_SENSOR("  ", "Energy 1",           energy_sensor_1_);
+  LOG_SENSOR("  ", "Energy 2",           energy_sensor_2_);
+  LOG_SENSOR("  ", "Energy sum",         energy_sensor_sum_);
+  LOG_SENSOR("  ", "Apparent power 1",   apparent_power_sensor_1_);
+  LOG_SENSOR("  ", "Apparent power 2",   apparent_power_sensor_2_);
+  LOG_SENSOR("  ", "Reactive power 1",   reactive_power_sensor_1_);
+  LOG_SENSOR("  ", "Reactive power 2",   reactive_power_sensor_2_);
+  LOG_SENSOR("  ", "Power factor 1",     power_factor_sensor_1_);
+  LOG_SENSOR("  ", "Power factor 2",     power_factor_sensor_2_);
+  LOG_SENSOR("  ", "Active current 1",   active_current_sensor_1_);
+  LOG_SENSOR("  ", "Active current 2",   active_current_sensor_2_);
+  LOG_SENSOR("  ", "Reactive current 1", reactive_current_sensor_1_);
+  LOG_SENSOR("  ", "Reactive current 2", reactive_current_sensor_2_);
+  LOG_SENSOR("  ", "Apparent current 1", apparent_current_sensor_1_);
+  LOG_SENSOR("  ", "Apparent current 2", apparent_current_sensor_2_);
 }
 
 uint32_t BL0939Xiao::to_uint32_t(ube24_t input) {

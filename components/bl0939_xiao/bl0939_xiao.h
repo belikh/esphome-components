@@ -118,6 +118,21 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   void set_energy_sensor_2(sensor::Sensor *s)   { energy_sensor_2_   = s; }
   void set_energy_sensor_sum(sensor::Sensor *s) { energy_sensor_sum_ = s; }
 
+  // Derived quantities (computed from V_RMS, I_RMS and active power P;
+  // see received_package_() for the formulas).
+  void set_apparent_power_sensor_1(sensor::Sensor *s)   { apparent_power_sensor_1_   = s; }
+  void set_apparent_power_sensor_2(sensor::Sensor *s)   { apparent_power_sensor_2_   = s; }
+  void set_reactive_power_sensor_1(sensor::Sensor *s)   { reactive_power_sensor_1_   = s; }
+  void set_reactive_power_sensor_2(sensor::Sensor *s)   { reactive_power_sensor_2_   = s; }
+  void set_power_factor_sensor_1(sensor::Sensor *s)     { power_factor_sensor_1_     = s; }
+  void set_power_factor_sensor_2(sensor::Sensor *s)     { power_factor_sensor_2_     = s; }
+  void set_active_current_sensor_1(sensor::Sensor *s)   { active_current_sensor_1_   = s; }
+  void set_active_current_sensor_2(sensor::Sensor *s)   { active_current_sensor_2_   = s; }
+  void set_reactive_current_sensor_1(sensor::Sensor *s) { reactive_current_sensor_1_ = s; }
+  void set_reactive_current_sensor_2(sensor::Sensor *s) { reactive_current_sensor_2_ = s; }
+  void set_apparent_current_sensor_1(sensor::Sensor *s) { apparent_current_sensor_1_ = s; }
+  void set_apparent_current_sensor_2(sensor::Sensor *s) { apparent_current_sensor_2_ = s; }
+
   // Optional SCLK pin (XIAO D1 / GPIO3).
   // The PCB has a 1 kΩ pull-up to 3V3 keeping SCLK HIGH so BL0939 uses the
   // default address (5). Providing this pin locks the state explicitly.
@@ -143,6 +158,19 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *energy_sensor_1_   {nullptr};
   sensor::Sensor *energy_sensor_2_   {nullptr};
   sensor::Sensor *energy_sensor_sum_ {nullptr};
+
+  sensor::Sensor *apparent_power_sensor_1_   {nullptr};
+  sensor::Sensor *apparent_power_sensor_2_   {nullptr};
+  sensor::Sensor *reactive_power_sensor_1_   {nullptr};
+  sensor::Sensor *reactive_power_sensor_2_   {nullptr};
+  sensor::Sensor *power_factor_sensor_1_     {nullptr};
+  sensor::Sensor *power_factor_sensor_2_     {nullptr};
+  sensor::Sensor *active_current_sensor_1_   {nullptr};
+  sensor::Sensor *active_current_sensor_2_   {nullptr};
+  sensor::Sensor *reactive_current_sensor_1_ {nullptr};
+  sensor::Sensor *reactive_current_sensor_2_ {nullptr};
+  sensor::Sensor *apparent_current_sensor_1_ {nullptr};
+  sensor::Sensor *apparent_current_sensor_2_ {nullptr};
 
   GPIOPin *sclk_pin_ {nullptr};
 

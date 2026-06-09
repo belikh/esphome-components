@@ -83,3 +83,31 @@ sensor:
       name: "${friendly_name} Energy CH2"
     energy_total:
       name: "${friendly_name} Energy Total"
+
+    # Derived quantities (computed from voltage, current and active power;
+    # apparent_current_x duplicates current_x numerically and is provided
+    # only for naming compatibility with "effective/apparent current").
+    apparent_power_1:
+      name: "${friendly_name} Apparent Power CH1"
+    apparent_power_2:
+      name: "${friendly_name} Apparent Power CH2"
+    reactive_power_1:
+      name: "${friendly_name} Reactive Power CH1"
+    reactive_power_2:
+      name: "${friendly_name} Reactive Power CH2"
+    power_factor_1:
+      name: "${friendly_name} Power Factor CH1"
+    power_factor_2:
+      name: "${friendly_name} Power Factor CH2"
+    active_current_1:
+      name: "${friendly_name} Active Current CH1"
+    active_current_2:
+      name: "${friendly_name} Active Current CH2"
+    reactive_current_1:
+      name: "${friendly_name} Reactive Current CH1"
+    reactive_current_2:
+      name: "${friendly_name} Reactive Current CH2"
+    apparent_current_1:
+      name: "${friendly_name} Apparent Current CH1"
+    apparent_current_2:
+      name: "${friendly_name} Apparent Current CH2"
