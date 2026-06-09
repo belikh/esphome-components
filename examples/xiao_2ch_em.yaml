@@ -119,3 +119,11 @@ sensor:
       name: "${friendly_name} Fast Current CH2"
     chip_temperature:
       name: "${friendly_name} Chip Temperature"
+
+    # Phase angle (A_CORNER/B_CORNER) - read individually after the full
+    # packet since update_interval (10s) leaves plenty of time. Positive =
+    # current lags voltage (inductive), negative = leads (capacitive).
+    phase_angle_1:
+      name: "${friendly_name} Phase Angle CH1"
+    phase_angle_2:
+      name: "${friendly_name} Phase Angle CH2"

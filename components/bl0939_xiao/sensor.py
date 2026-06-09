@@ -19,6 +19,7 @@ from esphome.const import (
     STATE_CLASS_TOTAL_INCREASING,
     UNIT_AMPERE,
     UNIT_CELSIUS,
+    UNIT_DEGREES,
     UNIT_KILOWATT_HOURS,
     UNIT_PERCENT,
     UNIT_VOLT,
@@ -65,6 +66,12 @@ CONF_FAST_CURRENT_1 = "fast_current_1"
 CONF_FAST_CURRENT_2 = "fast_current_2"
 # Internal chip temperature (TPS1 register).
 CONF_CHIP_TEMPERATURE = "chip_temperature"
+
+# Voltage/current phase angle (A_CORNER/B_CORNER registers). Not part of the
+# 35-byte full packet; read individually after it. Positive = current lags
+# voltage (inductive), negative = current leads voltage (capacitive).
+CONF_PHASE_ANGLE_1 = "phase_angle_1"
+CONF_PHASE_ANGLE_2 = "phase_angle_2"
 
 # Calibration overrides
 CONF_CURRENT_REFERENCE = "current_reference"
@@ -220,6 +227,16 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+            cv.Optional(CONF_PHASE_ANGLE_1): sensor.sensor_schema(
+                unit_of_measurement=UNIT_DEGREES,
+                accuracy_decimals=1,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_PHASE_ANGLE_2): sensor.sensor_schema(
+                unit_of_measurement=UNIT_DEGREES,
+                accuracy_decimals=1,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
             # Optional: drive the BL0939 SCLK pin (connected to XIAO D1/GPIO3).
             # The board has a 1kΩ pull-up to 3V3 so leaving it unconfigured is safe.
             # Configure as OUTPUT HIGH to reinforce the pull-up and lock the address.
@@ -333,6 +350,14 @@ async def to_code(config):
     if chip_temperature_config := config.get(CONF_CHIP_TEMPERATURE):
         sens = await sensor.new_sensor(chip_temperature_config)
         cg.add(var.set_chip_temperature_sensor(sens))
+
+    if phase_angle_1_config := config.get(CONF_PHASE_ANGLE_1):
+        sens = await sensor.new_sensor(phase_angle_1_config)
+        cg.add(var.set_phase_angle_sensor_1(sens))
+
+    if phase_angle_2_config := config.get(CONF_PHASE_ANGLE_2):
+        sens = await sensor.new_sensor(phase_angle_2_config)
+        cg.add(var.set_phase_angle_sensor_2(sens))
 
     if sclk_pin_config := config.get(CONF_SCLK_PIN):
         sclk_pin = await cg.gpio_pin_expression(sclk_pin_config)

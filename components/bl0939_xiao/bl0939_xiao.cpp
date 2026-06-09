@@ -27,44 +27,100 @@ void BL0939Xiao::setup() {
 }
 
 void BL0939Xiao::update() {
+  if (read_state_ != ReadState::IDLE) {
+    ESP_LOGW(TAG, "Previous BL0939 read cycle still in progress, skipping update");
+    return;
+  }
+
   // Discard any leftover bytes from the previous cycle, then request a new
   // full-register packet from the BL0939.
   this->flush();
+  while (this->available()) {
+    this->read();
+  }
   this->write_byte(BL0939_READ_COMMAND);
   this->write_byte(BL0939_FULL_PACKET);
+  read_state_ = ReadState::WAIT_PACKET;
 }
 
 void BL0939Xiao::loop() {
   // KEY FIX for ESP32-C6 / esp-idf:
   // The original ESPHome BL0939 component checks available() > 0 and then
-  // immediately calls read_array(35).  On Arduino/ESP8266 the UART ISR
+  // immediately calls read_array().  On Arduino/ESP8266 the UART ISR
   // typically fills the ring buffer faster than loop() runs, so this usually
   // succeeds.  On ESP32-C6 with the esp-idf UART driver the main loop can
   // run between individual byte receipts (at 4800 baud a full 35-byte packet
   // takes ~73 ms), so read_array() returns false after discarding the partial
-  // data already buffered.  We wait until all 35 bytes have arrived first.
-  if (this->available() < static_cast<int>(sizeof(DataPacket))) {
-    return;
-  }
+  // data already buffered.  We wait until all expected bytes have arrived
+  // before reading.
+  switch (read_state_) {
+    case ReadState::IDLE:
+      return;
 
-  DataPacket buffer;
-  if (!this->read_array(reinterpret_cast<uint8_t *>(&buffer), sizeof(buffer))) {
-    ESP_LOGW(TAG, "Junk on wire. Throwing away partial message.");
-    while (this->available()) {
-      this->read();
+    case ReadState::WAIT_PACKET: {
+      if (this->available() < static_cast<int>(sizeof(DataPacket))) {
+        return;
+      }
+
+      DataPacket buffer;
+      if (!this->read_array(reinterpret_cast<uint8_t *>(&buffer), sizeof(buffer))) {
+        ESP_LOGW(TAG, "Junk on wire. Throwing away partial message.");
+        while (this->available()) {
+          this->read();
+        }
+        read_state_ = ReadState::IDLE;
+        return;
+      }
+
+      if (!validate_checksum(&buffer)) {
+        // Packet is corrupt – drain the buffer so the next update() starts clean.
+        while (this->available()) {
+          this->read();
+        }
+        read_state_ = ReadState::IDLE;
+        return;
+      }
+
+      received_package_(&buffer);
+
+      // A_CORNER/B_CORNER aren't part of the full packet; only fetch them
+      // if a phase-angle sensor is configured.
+      if (phase_angle_sensor_1_ != nullptr || phase_angle_sensor_2_ != nullptr) {
+        this->write_byte(BL0939_READ_COMMAND);
+        this->write_byte(BL0939_REG_A_CORNER);
+        read_state_ = ReadState::WAIT_A_CORNER;
+      } else {
+        read_state_ = ReadState::IDLE;
+      }
+      return;
     }
-    return;
-  }
 
-  if (!validate_checksum(&buffer)) {
-    // Packet is corrupt – drain the buffer so the next update() starts clean.
-    while (this->available()) {
-      this->read();
+    case ReadState::WAIT_A_CORNER: {
+      if (this->available() < 4) {
+        return;
+      }
+      uint16_t a_corner = 0;
+      if (read_register_(BL0939_REG_A_CORNER, &a_corner) && phase_angle_sensor_1_ != nullptr) {
+        publish_phase_angle_(phase_angle_sensor_1_, a_corner);
+      }
+      this->write_byte(BL0939_READ_COMMAND);
+      this->write_byte(BL0939_REG_B_CORNER);
+      read_state_ = ReadState::WAIT_B_CORNER;
+      return;
     }
-    return;
-  }
 
-  received_package_(&buffer);
+    case ReadState::WAIT_B_CORNER: {
+      if (this->available() < 4) {
+        return;
+      }
+      uint16_t b_corner = 0;
+      if (read_register_(BL0939_REG_B_CORNER, &b_corner) && phase_angle_sensor_2_ != nullptr) {
+        publish_phase_angle_(phase_angle_sensor_2_, b_corner);
+      }
+      read_state_ = ReadState::IDLE;
+      return;
+    }
+  }
 }
 
 bool BL0939Xiao::validate_checksum(const DataPacket *data) {
@@ -198,6 +254,8 @@ void BL0939Xiao::dump_config() {
   LOG_SENSOR("  ", "Fast current 1",     fast_current_sensor_1_);
   LOG_SENSOR("  ", "Fast current 2",     fast_current_sensor_2_);
   LOG_SENSOR("  ", "Chip temperature",   chip_temperature_sensor_);
+  LOG_SENSOR("  ", "Phase angle 1",      phase_angle_sensor_1_);
+  LOG_SENSOR("  ", "Phase angle 2",      phase_angle_sensor_2_);
 }
 
 uint32_t BL0939Xiao::to_uint32_t(ube24_t input) {
@@ -214,6 +272,44 @@ int32_t BL0939Xiao::to_int32_t(sbe24_t input) {
 
 uint16_t BL0939Xiao::to_uint16_t(ube16_t input) {
   return static_cast<uint16_t>(input.h) << 8 | static_cast<uint16_t>(input.l);
+}
+
+bool BL0939Xiao::read_register_(uint8_t addr, uint16_t *value) {
+  uint8_t buf[4];
+  if (!this->read_array(buf, sizeof(buf))) {
+    ESP_LOGW(TAG, "BL0939 register 0x%02X: junk on wire, throwing away partial response", addr);
+    while (this->available()) {
+      this->read();
+    }
+    return false;
+  }
+
+  uint8_t checksum = static_cast<uint8_t>(BL0939_READ_COMMAND + addr + buf[0] + buf[1] + buf[2]);
+  checksum ^= 0xFF;
+  if (checksum != buf[3]) {
+    ESP_LOGW(TAG, "BL0939 register 0x%02X invalid checksum: computed 0x%02X, got 0x%02X",
+             addr, checksum, buf[3]);
+    return false;
+  }
+
+  // Registers are sent low byte first; A_CORNER/B_CORNER are 16-bit so the
+  // third (high) byte is always 0.
+  *value = static_cast<uint16_t>(buf[1]) << 8 | static_cast<uint16_t>(buf[0]);
+  return true;
+}
+
+void BL0939Xiao::publish_phase_angle_(sensor::Sensor *s, uint16_t corner) const {
+  // Phase angle conversion (datasheet section 2.9):
+  //   angle = 2*pi * AC_FREQ * CORNER / CORNER_F0   (radians)
+  // Expressed in degrees and wrapped to (-180, 180]: a positive angle means
+  // the current zero-crossing trails the voltage zero-crossing (lagging /
+  // inductive); values past 180 degrees indicate the current crossing
+  // actually preceded the voltage crossing (leading / capacitive).
+  float angle = 360.0f * BL0939_XIAO_AC_FREQ * static_cast<float>(corner) / BL0939_XIAO_CORNER_F0;
+  if (angle > 180.0f) {
+    angle -= 360.0f;
+  }
+  s->publish_state(angle);
 }
 
 }  // namespace bl0939_xiao

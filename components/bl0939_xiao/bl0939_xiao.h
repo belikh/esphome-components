@@ -51,6 +51,17 @@ static const uint8_t BL0939_REG_MODE              = 0x18;
 static const uint8_t BL0939_REG_SOFT_RESET        = 0x19;
 static const uint8_t BL0939_REG_USR_WRPROT        = 0x1A;
 static const uint8_t BL0939_REG_TPS_CTRL          = 0x1B;
+// Phase-angle registers, not part of the 35-byte full packet; read
+// individually after it (update_interval is seconds, so the few extra
+// bytes of UART traffic are negligible).
+static const uint8_t BL0939_REG_A_CORNER          = 0x0C;
+static const uint8_t BL0939_REG_B_CORNER          = 0x0D;
+
+// AC line frequency assumed by BL0939_INIT (AC_FREQ_SEL=0 -> 50 Hz), and the
+// phase-angle register sampling frequency f0 (datasheet typical value).
+// angle_deg = 360 * AC_FREQ * CORNER / CORNER_F0.
+static const float BL0939_XIAO_AC_FREQ  = 50.0f;
+static const float BL0939_XIAO_CORNER_F0 = 1.0e6f;
 
 // Initialisation sequence (write frames: cmd, addr, data_l, data_m, data_h, checksum)
 static const uint8_t BL0939_INIT[6][6] = {
@@ -145,6 +156,13 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   // Internal chip temperature (TPS1), converted to °C.
   void set_chip_temperature_sensor(sensor::Sensor *s) { chip_temperature_sensor_ = s; }
 
+  // Voltage/current phase angle (A_CORNER/B_CORNER), in degrees.
+  // Positive = current lags voltage (inductive load), negative = current
+  // leads voltage (capacitive load). Read individually after the full
+  // packet since they are not part of it.
+  void set_phase_angle_sensor_1(sensor::Sensor *s) { phase_angle_sensor_1_ = s; }
+  void set_phase_angle_sensor_2(sensor::Sensor *s) { phase_angle_sensor_2_ = s; }
+
   // Optional SCLK pin (XIAO D1 / GPIO3).
   // The PCB has a 1 kΩ pull-up to 3V3 keeping SCLK HIGH so BL0939 uses the
   // default address (5). Providing this pin locks the state explicitly.
@@ -188,6 +206,9 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *fast_current_sensor_2_  {nullptr};
   sensor::Sensor *chip_temperature_sensor_ {nullptr};
 
+  sensor::Sensor *phase_angle_sensor_1_ {nullptr};
+  sensor::Sensor *phase_angle_sensor_2_ {nullptr};
+
   GPIOPin *sclk_pin_ {nullptr};
 
   float current_reference_ {BL0939_XIAO_IREF};
@@ -195,11 +216,30 @@ class BL0939Xiao : public PollingComponent, public uart::UARTDevice {
   float power_reference_   {BL0939_XIAO_PREF};
   float energy_reference_  {BL0939_XIAO_EREF};
 
+  // update() requests the full packet; loop() then walks through this state
+  // machine, optionally following up with individual register reads for
+  // data not included in the full packet (currently A_CORNER/B_CORNER).
+  enum class ReadState : uint8_t {
+    IDLE,
+    WAIT_PACKET,
+    WAIT_A_CORNER,
+    WAIT_B_CORNER,
+  };
+  ReadState read_state_{ReadState::IDLE};
+
   static uint32_t to_uint32_t(ube24_t input);
   static int32_t  to_int32_t(sbe24_t input);
   static uint16_t to_uint16_t(ube16_t input);
   static bool     validate_checksum(const DataPacket *data);
   void            received_package_(const DataPacket *data) const;
+
+  // Reads a single-register response (3 data bytes + checksum) for register
+  // `addr`, validating its checksum. Returns false (and leaves *value
+  // unchanged) on a checksum mismatch.
+  bool read_register_(uint8_t addr, uint16_t *value);
+  // Converts a raw A/B_CORNER value to a signed phase angle in degrees and
+  // publishes it.
+  void publish_phase_angle_(sensor::Sensor *s, uint16_t corner) const;
 };
 
 }  // namespace bl0939_xiao
