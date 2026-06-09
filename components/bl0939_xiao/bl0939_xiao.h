@@ -58,7 +58,9 @@ static const uint8_t BL0939_INIT[6][6] = {
     {BL0939_WRITE_COMMAND, BL0939_REG_SOFT_RESET, 0x5A, 0x5A, 0x5A, 0x33},
     // Enable user writes
     {BL0939_WRITE_COMMAND, BL0939_REG_USR_WRPROT, 0x55, 0x00, 0x00, 0xEB},
-    // 50 Hz, 800 ms RMS update
+    // MODE = 0x1000: CF_UNABLE=1 (CF pin repurposed for alarm/temp output,
+    // unused since all data is read over UART); RMS_UPDATE_SEL=0 (400 ms,
+    // default) and AC_FREQ_SEL=0 (50 Hz, default) are left at their defaults.
     {BL0939_WRITE_COMMAND, BL0939_REG_MODE, 0x00, 0x10, 0x00, 0x32},
     // Temperature sensor control
     {BL0939_WRITE_COMMAND, BL0939_REG_TPS_CTRL, 0xFF, 0x47, 0x00, 0xF9},
