@@ -2,8 +2,8 @@
 
    <p align="right">
      <picture>
-       <source media="(prefers-color-scheme: dark)" srcset="https://github.com/belikh/design/releases/latest/download/logo-dark.svg">
-       <img alt="jupiter.au" src="https://github.com/belikh/design/releases/latest/download/logo-light.svg" width="260">
+       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/belikh/design/latest/packages/graphics/logo/jupiter-logo-dark.svg">
+       <img alt="jupiter.au" src="https://raw.githubusercontent.com/belikh/design/latest/packages/graphics/logo/jupiter-logo-light.svg" width="260">
      </picture>
    </p>
 
@@ -12,22 +12,22 @@
 .. meta::
    :description: External ESPHome components. bl0939_xiao reads the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter.
 
-.. |esp-l| image:: https://github.com/belikh/design/releases/latest/download/icon-esphome-light.svg#gh-light-mode-only
+.. |esp-l| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/esphome-light.svg#gh-light-mode-only
    :width: 20
    :alt:
-.. |esp-d| image:: https://github.com/belikh/design/releases/latest/download/icon-esphome-dark.svg#gh-dark-mode-only
+.. |esp-d| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/esphome-dark.svg#gh-dark-mode-only
    :width: 20
    :alt:
-.. |sen-l| image:: https://github.com/belikh/design/releases/latest/download/icon-pulse-light.svg#gh-light-mode-only
+.. |sen-l| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/pulse-light.svg#gh-light-mode-only
    :width: 20
    :alt:
-.. |sen-d| image:: https://github.com/belikh/design/releases/latest/download/icon-pulse-dark.svg#gh-dark-mode-only
+.. |sen-d| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/pulse-dark.svg#gh-dark-mode-only
    :width: 20
    :alt:
-.. |cfg-l| image:: https://github.com/belikh/design/releases/latest/download/icon-sliders-light.svg#gh-light-mode-only
+.. |cfg-l| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/sliders-light.svg#gh-light-mode-only
    :width: 20
    :alt:
-.. |cfg-d| image:: https://github.com/belikh/design/releases/latest/download/icon-sliders-dark.svg#gh-dark-mode-only
+.. |cfg-d| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/sliders-dark.svg#gh-dark-mode-only
    :width: 20
    :alt:
 
@@ -39,7 +39,7 @@ External ESPHome components. This repo has one: ``bl0939_xiao``, a driver for th
 
 .. raw:: html
 
-   <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/belikh/design/releases/latest/download/rule-end-dark.svg"><img alt="" src="https://github.com/belikh/design/releases/latest/download/rule-end-light.svg" width="50%"></picture></p>
+   <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/rule/end-dark.svg"><img alt="" src="https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/rule/end-light.svg" width="50%"></picture></p>
 
 |
 
