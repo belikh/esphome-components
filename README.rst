@@ -10,7 +10,7 @@
    <h1>esphome-components</h1>
 
 .. meta::
-   :description: External ESPHome components. bl0939_xiao reads the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter.
+   :description: External ESPHome components. bl0939_xiao reads the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter. ambz2_uart opens UART0 or UART1 with explicit pins on Realtek RTL8720C modules such as the Tuya WBR1.
 
 .. |esp-l| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/esphome-light.svg#gh-light-mode-only
    :width: 20
@@ -31,9 +31,13 @@
    :width: 20
    :alt:
 
-External ESPHome components. This repo has one: ``bl0939_xiao``, a driver for the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter (XIAO ESP32-C6). The BL0939 talks UART. The component reads the full register packet and publishes voltage, current, power and energy for both channels, plus derived and chip-level sensors.
+External ESPHome components. This repo has two.
 
-`Install`_ · `Use`_ · `Sensors`_ · `Configuration`_
+``bl0939_xiao`` is a driver for the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter (XIAO ESP32-C6). The BL0939 talks UART. The component reads the full register packet and publishes voltage, current, power and energy for both channels, plus derived and chip-level sensors.
+
+``ambz2_uart`` opens UART0 or UART1 on Realtek RTL8720C modules (the Tuya WBR1, for example) with pins you choose, where ESPHome's own ``uart`` refuses them.
+
+`Install`_ · `Use`_ · `Sensors`_ · `Configuration`_ · `ambz2_uart`_
 
 |
 
@@ -52,7 +56,7 @@ Add the repo as an external component in your ESPHome YAML:
 
    external_components:
      - source: github://belikh/esphome-components
-       components: [bl0939_xiao]
+       components: [bl0939_xiao, ambz2_uart]
 
 |
 
@@ -166,6 +170,42 @@ Configuration
      - Calibration overrides. The defaults are computed from the board's component values, so set these only after measuring against a known load.
 
 The example config follows the board's schematic: two 100 A / 50 mA CTs with 0.6 Ω burden resistors on channels 1 and 2, and a voltage divider of five 22 kΩ resistors into a ZMPT107-1 transformer with a 24.9 Ω burden. If your hardware differs, adjust the references.
+
+|
+
+ambz2_uart
+----------
+
+On a Realtek RTL8720C chip, UART0 can use RX on PA12 or PA13 and TX on PA11 or PA14, and UART1 can use RX on PA00 or PA02 and TX on PA01 or PA03. LibreTiny lists both choices in the board file, so ESPHome's ``uart`` has no single pin pair to match against, rejects PA13 and PA14 and stops with ``SoftwareSerial is not implemented for this chip``. ``ambz2_uart`` calls ``Serial0.begin()`` or ``Serial1.begin()`` with the pins you set and presents an ordinary ESPHome UART, so other components take it as their ``uart_id``.
+
+.. code-block:: yaml
+
+   rtl87xx:
+     board: wbr1
+
+   ambz2_uart:
+     id: ac_uart
+     port: 0
+     rx_pin: 13
+     tx_pin: 14
+     baud_rate: 9600
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 62
+
+   * - Option
+     - Meaning
+   * - |cfg-l| |cfg-d| ``port``
+     - ``0`` (default) or ``1``. UART2 is the log UART on these modules, so ESPHome's own ``uart`` already handles it.
+   * - |cfg-l| |cfg-d| ``rx_pin``
+     - GPIO number. ``12`` or ``13`` on UART0, ``0`` or ``2`` on UART1.
+   * - |cfg-l| |cfg-d| ``tx_pin``
+     - GPIO number. ``11`` or ``14`` on UART0, ``1`` or ``3`` on UART1.
+   * - |cfg-l| |cfg-d| ``baud_rate``
+     - Any rate from 1200 to 1000000. Data bits, parity and stop bits are fixed at 8N1.
+
+Receiving is tested on a Tuya WBR1 at 9600 baud. Sending is not tested yet. `examples/wbr1_gaitek_ac.yaml <examples/wbr1_gaitek_ac.yaml>`_ drives a portable air conditioner through the original Wi-Fi board with the ``gaitek`` component from ``philippe44/esphome-gaitek``.
 
 |
 
