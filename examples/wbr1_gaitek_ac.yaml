@@ -9,9 +9,8 @@
 # Deliberately NOT included: captive_portal and the wifi fallback "ap:". With them the module
 # reset itself about every 5 s right after joining Wi-Fi on this chip.
 #
-# The GAITEK component comes unmodified from https://github.com/philippe44/esphome-gaitek.
-# NOTE: upstream sends its idle heartbeat as "FF 01" every 110 s, while this unit's original
-# module sent "FF FF" about every 120 s. Not yet known whether that matters.
+# NOTE: the gaitek component sends its idle keepalive as "FF 01" every 110 s, while this
+# unit's original module sent "FF FF" about every 120 s. Not yet known whether that matters.
 
 substitutions:
   hostname: "aircon-wifi"
@@ -25,14 +24,10 @@ rtl87xx:
   board: wbr1
 
 external_components:
-  - source:
-      type: git
-      url: https://github.com/philippe44/esphome-gaitek
-      ref: master
-    components: [gaitek]
-  # Starts UART0 on explicit pins. ESPHome's own uart refuses PA13/PA14 on the WBR1.
+  # gaitek: the climate entity. ambz2_uart: starts UART0 on explicit pins, because
+  # ESPHome's own uart refuses PA13/PA14 on the WBR1.
   - source: github://belikh/esphome-components
-    components: [ambz2_uart]
+    components: [gaitek, ambz2_uart]
 
 # Logs also go out on the log UART2 (PA15/PA16, 115200), the pads used for flashing.
 logger:

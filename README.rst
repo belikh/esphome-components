@@ -10,7 +10,7 @@
    <h1>esphome-components</h1>
 
 .. meta::
-   :description: External ESPHome components. bl0939_xiao reads the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter. ambz2_uart opens UART0 or UART1 with explicit pins on Realtek RTL8720C modules such as the Tuya WBR1.
+   :description: External ESPHome components. bl0939_xiao reads the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter. ambz2_uart opens UART0 or UART1 with explicit pins on Realtek RTL8720C modules such as the Tuya WBR1. gaitek is a climate entity for portable air conditioners that speak the GAITEK serial protocol.
 
 .. |esp-l| image:: https://raw.githubusercontent.com/belikh/design/latest/packages/github/graphics/icon/esphome-light.svg#gh-light-mode-only
    :width: 20
@@ -31,13 +31,15 @@
    :width: 20
    :alt:
 
-External ESPHome components. This repo has two.
+External ESPHome components. This repo has three.
 
 ``bl0939_xiao`` is a driver for the BL0939 energy metering chip on the Seeed Studio XIAO 2-Channel Wi-Fi AC Energy Meter (XIAO ESP32-C6). The BL0939 talks UART. The component reads the full register packet and publishes voltage, current, power and energy for both channels, plus derived and chip-level sensors.
 
 ``ambz2_uart`` opens UART0 or UART1 on Realtek RTL8720C modules (the Tuya WBR1, for example) with pins you choose, where ESPHome's own ``uart`` refuses them.
 
-`Install`_ · `Use`_ · `Sensors`_ · `Configuration`_ · `ambz2_uart`_
+``gaitek`` is a climate entity for portable air conditioners whose Wi-Fi module port speaks the GAITEK serial protocol.
+
+`Install`_ · `Use`_ · `Sensors`_ · `Configuration`_ · `ambz2_uart`_ · `gaitek`_
 
 |
 
@@ -205,7 +207,46 @@ On a Realtek RTL8720C chip, UART0 can use RX on PA12 or PA13 and TX on PA11 or P
    * - |cfg-l| |cfg-d| ``baud_rate``
      - Any rate from 1200 to 1000000. Data bits, parity and stop bits are fixed at 8N1.
 
-Receiving is tested on a Tuya WBR1 at 9600 baud. Sending is not tested yet. `examples/wbr1_gaitek_ac.yaml <examples/wbr1_gaitek_ac.yaml>`_ drives a portable air conditioner through the original Wi-Fi board with the ``gaitek`` component from ``philippe44/esphome-gaitek``.
+Receiving is tested on a Tuya WBR1 at 9600 baud. Sending is not tested yet. `examples/wbr1_gaitek_ac.yaml <examples/wbr1_gaitek_ac.yaml>`_ drives a portable air conditioner through the original Wi-Fi board with ``gaitek``.
+
+|
+
+gaitek
+------
+
+Some portable air conditioners have a port for a Wi-Fi module that speaks the GAITEK protocol: 9600 8N1 at 5 V. The unit sends a 24-byte status frame (``GAITEK`` … ``KETIAG``) every few seconds and takes 14-byte commands. ``gaitek`` shows the unit as a climate entity with off, cool, dry and fan modes, three fan speeds, swing, target temperature (16 to 31 °C) and room temperature.
+
+.. code-block:: yaml
+
+   uart:
+     id: ac_uart
+     rx_pin: GPIO10
+     tx_pin: GPIO11
+     baud_rate: 9600
+
+   climate:
+     - platform: gaitek
+       name: Air conditioner
+       uart_id: ac_uart
+       timer:
+         name: Air conditioner timer
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 62
+
+   * - Option
+     - Meaning
+   * - |cfg-l| |cfg-d| ``uart_id``
+     - The UART wired to the port. An ``ambz2_uart`` works here too.
+   * - |cfg-l| |cfg-d| ``humidity``
+     - ``true`` adds room and target humidity (30 to 90 %). Default ``false``. Set it only on a unit with a humidity sensor.
+   * - |cfg-l| |cfg-d| ``timer``
+     - Optional number entity for the off timer, 0 to 24 hours.
+
+The entity changes only when the unit reports the new state, so it always shows what the unit is doing. ``components/gaitek/frame.h`` describes the frames.
+
+The component compiles for the Tuya WBR1 and its frame code is tested on a PC. It is not yet tested on a unit.
 
 |
 
