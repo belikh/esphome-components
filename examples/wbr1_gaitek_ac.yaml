@@ -1,0 +1,57 @@
+# Portable AC (GAITEK protocol) on the ORIGINAL Wi-Fi board: JWBR2S-5V carrier with a Tuya
+# WBR1 module (RTL8720CF). Replaces the Tuya firmware and talks GAITEK to the unit's display
+# MCU over the module's host UART0 (PA13 RX / PA14 TX, 9600 8N1). Confirmed on this unit:
+# the 24-byte "GAITEK ... KETIAG" status frames arrive on UART0 PA13.
+#
+# Needs: ESPHome 2026.11 or newer (rtl87xx / LibreTiny board wbr1) and the secrets wifi_ssid,
+# wifi_password and ota_password.
+#
+# Deliberately NOT included: captive_portal and the wifi fallback "ap:". With them the module
+# reset itself about every 5 s right after joining Wi-Fi on this chip.
+#
+# NOTE: the gaitek component sends its idle keepalive as "FF 01" every 110 s, while this
+# unit's original module sent "FF FF" about every 120 s. Not yet known whether that matters.
+
+substitutions:
+  hostname: "aircon-wifi"
+  friendlyname: Portable Airconditioner
+
+esphome:
+  name: ${hostname}
+  friendly_name: ${friendlyname}
+
+rtl87xx:
+  board: wbr1
+
+external_components:
+  # gaitek: the climate entity. ambz2_uart: starts UART0 on explicit pins, because
+  # ESPHome's own uart refuses PA13/PA14 on the WBR1.
+  - source: github://belikh/esphome-components
+    components: [gaitek, ambz2_uart]
+
+# Logs also go out on the log UART2 (PA15/PA16, 115200), the pads used for flashing.
+logger:
+  level: DEBUG
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+ambz2_uart:
+  id: ac_uart
+  port: 0           # UART0
+  tx_pin: 14        # PA14 = TX0
+  rx_pin: 13        # PA13 = RX0
+  baud_rate: 9600
+
+climate:
+  - platform: gaitek
+    id: ac
+    name: "${friendlyname}"
+    uart_id: ac_uart
